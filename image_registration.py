@@ -14,8 +14,9 @@ MIN_MATCH_COUNT = 10
 height, width = [], []
 t = 0
 
+# Output Directories
 RGB = '/path to the directory storing RGB images/'
-CIR = '/path to the directory storing NIR images/'
+CIR = '/path to the directory storing CIR images/'
 
 if not os.path.isdir(RGB):
     os.mkdir(RGB)
@@ -55,6 +56,23 @@ def Homography_Matrix(im1, im2):
         print("Not enough matches are found - %d/%d" % (len(good), MIN_MATCH_COUNT))
         H = None
     return H
+
+def crop_edges(image, crop_pixels=15):
+    """
+    Crop edges from an image to remove border artifacts from geometric transformations.
+    """
+    if len(image.shape) == 3:  # Color image
+        h, w, c = image.shape
+    else:  # Grayscale image
+        h, w = image.shape
+    
+    # Ensure we don't crop more than half the image dimensions
+    crop_pixels = min(crop_pixels, h//4, w//4)
+    
+    if len(image.shape) == 3:
+        return image[crop_pixels:h-crop_pixels, crop_pixels:w-crop_pixels, :]
+    else:
+        return image[crop_pixels:h-crop_pixels, crop_pixels:w-crop_pixels]
 
 def alignment(r, g):
     global procs
@@ -126,13 +144,15 @@ def alignment(r, g):
             continue
         redReg = crop_edges(redReg)
     ############################################################################        
-        process_name = current_process().name      
+        process_id = os.getpid()
         
-        print('Storing Aligned Images ...')
-        cv2.imwrite(RGB + '{0}.png'.format(t), redReg)
-        cv2.imwrite(CIR + '{0}.png'.format(t), cirReg)
-        t += 1
-        print(f"Process Name: {process_name}")
+        print('Storing Aligned Images ...') 
+        
+        filename = f"{process_id}_{j}" 
+        cv2.imwrite(os.path.join(RGB, f'{filename}.png'), redReg)
+        cv2.imwrite(os.path.join(CIR, f'{filename}.png'), cirReg)
+        
+        print(f"Process Name: {process_id}")
 
 def alignImages(im1, im2):
     M = Homography_Matrix(im1, im2)
@@ -158,8 +178,8 @@ if __name__ == '__main__':
     chunk_size = 400  #number of images
     procs = 10 #number of cores
 
-    cir_images = sorted(glob.glob('path to the directory of color calibrated NIR images'))
-    rgb_images = sorted(glob.glob('path to the directory of color calibrated RGB images'))
+    rgb_images = sorted(glob.glob('/path to the directory of color calibrated RGB images/*.fileExtension/'))
+    cir_images = sorted(glob.glob('/path to the directory of color calibrated NIR images/*.fileExtension/'))
     
     r, g, b, n, re = [],[],[],[],[]
     for j, k in (zip(cir_images, rgb_images)):   
